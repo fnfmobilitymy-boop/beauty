@@ -1,0 +1,8 @@
+FROM docker:28-cli AS dockercli
+FROM node:24-bookworm-slim
+COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
+WORKDIR /runner
+COPY coding-sandbox.mjs coding-preview.mjs runner-client.mjs runner-service.mjs ./
+ENV KD_RUNNER_PORT=4000
+EXPOSE 4000
+CMD ["node", "runner-service.mjs"]

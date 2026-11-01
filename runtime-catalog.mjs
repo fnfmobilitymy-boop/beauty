@@ -1,0 +1,5 @@
+import manifest from './runtime/package.json' with {type:'json'};
+export const runtimeDependencies=Object.freeze({...manifest.dependencies});
+export function prepareDependencies(files,names){if(!Array.isArray(names)||!names.length||names.length>10||names.some(n=>!Object.hasOwn(runtimeDependencies,n)))throw Error('请从受控目录选择依赖：'+Object.keys(runtimeDependencies).join(', '));let pkg;try{pkg=files['package.json']?JSON.parse(files['package.json']):{name:'kd-generated-project',private:true,type:'module'}}catch{throw Error('package.json 不是有效 JSON')}
+if(!pkg||typeof pkg!=='object'||Array.isArray(pkg))throw Error('package.json 格式无效');for(const section of ['dependencies','devDependencies']){if(pkg[section]&&(typeof pkg[section]!=='object'||Array.isArray(pkg[section])))throw Error('依赖格式无效');for(const name of Object.keys(pkg[section]||{})){if(!Object.hasOwn(runtimeDependencies,name))throw Error('依赖不在受控目录：'+name);pkg[section][name]=runtimeDependencies[name]}}
+pkg.dependencies={...(pkg.dependencies||{})};for(const name of names)pkg.dependencies[name]=runtimeDependencies[name];return {...files,'package.json':JSON.stringify(pkg,null,2)+'\n'};}

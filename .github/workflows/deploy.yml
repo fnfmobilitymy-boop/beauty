@@ -1,0 +1,88 @@
+name: Deploy website to Docker server
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Check and package K.D WEB]
+    branches: [main]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: kdweb-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      PROVIDER_KEY: ${{ secrets.KD_AI_API_KEY }}
+      PUBLIC_HOST: ${{ vars.DEPLOY_PUBLIC_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate deployment configuration and provider access
+        run: |
+          python3 - <<'PY'
+          import os,re,urllib.request
+          for name in ['DEPLOY_HOST','DEPLOY_USER','DEPLOY_SSH_KEY','DEPLOY_KNOWN_HOSTS','PROVIDER_KEY']:
+              if not os.environ.get(name):raise SystemExit('Missing GitHub Secret: '+name)
+          if not re.fullmatch(r'[a-zA-Z0-9.-]+',os.environ['DEPLOY_HOST']):raise SystemExit('Invalid deployment host')
+          if not re.fullmatch(r'[a-zA-Z0-9_-]+',os.environ['DEPLOY_USER']):raise SystemExit('Invalid deployment user')
+          request=urllib.request.Request('https://api.openai.com/v1/models',headers={'Authorization':'Bearer '+os.environ['PROVIDER_KEY']})
+          with urllib.request.urlopen(request,timeout=20) as response:
+              if response.status!=200:raise SystemExit('Provider credentials not ready')
+          PY
+      - name: Validate source
+        run: npm run check && npm test
+      - name: Configure verified SSH host keys
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root=Path.home()/'.ssh'
+          (root/'kd_deploy').write_text(os.environ['DEPLOY_SSH_KEY']+'\n')
+          (root/'known_hosts').write_text(os.environ['DEPLOY_KNOWN_HOSTS']+'\n')
+          PY
+      - name: Upload verified source
+        run: |
+          tar -czf "$RUNNER_TEMP/release.tgz" --exclude='.git' --exclude='data' --exclude='.env*' --exclude='.private' --exclude='node_modules' --exclude='test-results' --exclude='*.sqlite*' --exclude='*.db' --exclude='*.tar.gz' .
+          scp -i ~/.ssh/kd_deploy -o StrictHostKeyChecking=yes "$RUNNER_TEMP/release.tgz" "$DEPLOY_USER@$DEPLOY_HOST:kd-web-release.tgz"
+          ssh -i ~/.ssh/kd_deploy -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'set -eu; if [ -d "$HOME/kd-web" ] && [ ! -f "$HOME/kd-web/.kd-managed" ]; then echo "Target directory is not marked as managed; refusing overwrite" >&2; exit 1; fi; mkdir -p "$HOME/kd-web"; touch "$HOME/kd-web/.kd-managed"; tar -xzf "$HOME/kd-web-release.tgz" -C "$HOME/kd-web"; rm "$HOME/kd-web-release.tgz"'
+      - name: Configure private runtime settings
+        run: |
+          python3 - <<'PY' | ssh -i ~/.ssh/kd_deploy -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'cd "$HOME/kd-web" && python3 scripts/configure-deploy.py'
+          import json,os,sys
+          json.dump({'serverHost':os.environ['DEPLOY_HOST'],'publicHost':os.environ.get('PUBLIC_HOST',''),'aiKey':os.environ['PROVIDER_KEY']},sys.stdout)
+          PY
+      - name: Build and start service
+        run: ssh -i ~/.ssh/kd_deploy -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'cd "$HOME/kd-web" && sh scripts/deploy-host.sh'
+      - name: Verify public URLs
+        run: |
+          python3 - <<'PY'
+          import os,ipaddress,time,urllib.request
+          host=os.environ.get('PUBLIC_HOST') or 'kd-web.'+str(ipaddress.ip_address(os.environ['DEPLOY_HOST']))+'.sslip.io'
+          origin='https://'+host
+          for attempt in range(60):
+              try:
+                  with urllib.request.urlopen(origin+'/api/health',timeout=10) as r:
+                      if r.status==200:break
+              except Exception:
+                  if attempt==59:raise
+                  time.sleep(3)
+          for path,marker in [('/','K.D WEB'),('/studio','AI 开发工作区'),('/admin','管理后台')]:
+              with urllib.request.urlopen(origin+path,timeout=20) as r:
+                  if marker not in r.read().decode():raise SystemExit('Page verification failed: '+path)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write('Frontend: '+origin+'/\n\nCoding studio: '+origin+'/studio\n\nAdministration: '+origin+'/admin\n')
+          PY

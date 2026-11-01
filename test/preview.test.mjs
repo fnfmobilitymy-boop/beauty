@@ -1,0 +1,15 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createPreviewManager} from '../coding-preview.mjs';
+import {prepareDependencies} from '../runtime-catalog.mjs';
+test('approved dependency preparation rejects arbitrary packages and pins versions',()=>{const files=prepareDependencies({},['express','react']);const pkg=JSON.parse(files['package.json']);assert.equal(pkg.dependencies.express,'5.3.0');assert.equal(pkg.dependencies.react,'19.3.1');assert.throws(()=>prepareDependencies({},['unknown-package']));assert.throws(()=>prepareDependencies({'package.json':'bad'},['react']));assert.throws(()=>prepareDependencies({'package.json':'{"dependencies":{"bad":"https://evil.example/pkg.tgz"}}'},['react']))});
+test('persistent preview serves full-stack requests without exposing daemon or credentials',{skip:process.env.KD_SANDBOX_TESTS!=='1'},async()=>{
+ const previews=createPreviewManager();let session;try{const files={'server.mjs':"import http from 'node:http';let count=0;http.createServer(async(req,res)=>{if(req.url==='/api/count'){if(req.method==='POST')count++;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({count,hasKey:!!process.env.KD_AI_API_KEY}));return}res.setHeader('Content-Type','text/html');res.end('<h1>Preview ready</h1>')}).listen(process.env.PORT,'0.0.0.0');"};session=await previews.start(files,'node server.mjs',3000);const html=await previews.request(session.id);assert.match(Buffer.from(html.body,'base64').toString(),/Preview ready/);await previews.request(session.id,{path:'/api/count',method:'POST',body:''});const api=await previews.request(session.id,{path:'/api/count'});assert.deepEqual(JSON.parse(Buffer.from(api.body,'base64')),{count:1,hasKey:false});assert.equal(typeof (await previews.logs(session.id)).logs,'string');await assert.rejects(previews.request(session.id,{path:'//evil.example'}),e=>e.status===400);await previews.stop(session.id);await assert.rejects(previews.request(session.id),e=>e.status===404)
+ }finally{await previews.close()}
+});
+
+test('approved React/Vite and Express dependencies run without network',{skip:process.env.KD_SANDBOX_TESTS!=='1'},async()=>{
+ const {runSandbox}=await import('../coding-sandbox.mjs');let files=prepareDependencies({'index.html':'<!doctype html><div id="root"></div><script type="module" src="/src/main.jsx"></script>','src/main.jsx':"import React from 'react';import {createRoot} from 'react-dom/client';createRoot(document.getElementById('root')).render(React.createElement('h1',null,'Build verified'));"},['react','react-dom','vite','express']);const pkg=JSON.parse(files['package.json']);pkg.scripts={build:'vite build'};files['package.json']=JSON.stringify(pkg);
+ const build=await runSandbox(files,'npm run build');assert.equal(build.exitCode,0,build.stderr);assert(build.files['dist/index.html']);
+ const express=await runSandbox(files,"node --input-type=module -e \"import express from 'express';console.log(typeof express)\"");assert.equal(express.exitCode,0,express.stderr);assert.match(express.stdout,/function/);
+});

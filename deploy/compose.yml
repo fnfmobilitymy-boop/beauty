@@ -1,0 +1,57 @@
+name: kdweb
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    env_file: .private/app.env
+    environment:
+      KD_DATA_DIR: /app/data
+      KD_RUNNER_SOCKET: /run/kd/runner.sock
+      KD_PUBLIC_ORIGIN: https://${KD_PUBLIC_HOST:?Set KD_PUBLIC_HOST}
+      KD_SECURE_COOKIES: enabled
+    volumes:
+      - platform:/app/data
+      - control:/run/kd:ro
+    depends_on:
+      runner:
+        condition: service_healthy
+    restart: unless-stopped
+  runner:
+    build:
+      context: ..
+      dockerfile: Dockerfile.runner
+    env_file: .private/runner.env
+    environment:
+      KD_RUNNER_SOCKET: /run/kd/runner.sock
+      KD_RUNNER_SOCKET_GROUP: '1000'
+      KD_SANDBOX_IMAGE: kd-runtime:local
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - control:/run/kd
+    network_mode: none
+    healthcheck:
+      test: [CMD, node, -e, "const h=require('http');h.get({socketPath:'/run/kd/runner.sock',path:'/health'},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  gateway:
+    image: caddy:2
+    environment:
+      KD_PUBLIC_HOST: ${KD_PUBLIC_HOST:?Set KD_PUBLIC_HOST}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+volumes:
+  platform:
+  control:
+  certificates:
+  caddy_config:

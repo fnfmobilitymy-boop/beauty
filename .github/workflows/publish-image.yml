@@ -1,0 +1,52 @@
+name: Publish deployment image (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run check && npm test && npm run test:browser
+      - name: Verify isolated coding runtime
+        run: |
+          docker build -f Dockerfile.sandbox -t kd-runtime:local .
+          KD_SANDBOX_TESTS=1 npm test
+          npm run test:studio
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set image name
+        run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.runner
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}-runner:latest
+            ${{ env.IMAGE_NAME }}-runner:${{ github.sha }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.sandbox
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}-runtime:latest
+            ${{ env.IMAGE_NAME }}-runtime:${{ github.sha }}

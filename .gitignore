@@ -1,0 +1,9 @@
+data/
+.env
+test-results/
+*.tar.gz
+node_modules/
+.env.*
+*.sqlite*
+*.db
+.private/

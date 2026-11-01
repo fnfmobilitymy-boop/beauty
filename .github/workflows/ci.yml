@@ -1,0 +1,66 @@
+name: Check and package K.D WEB
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check JavaScript syntax
+        run: npm run check
+      - name: Run isolated integration tests
+        run: npm test
+      - name: Browser workflow checks
+        run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure
+          path: test-results/
+      - name: Prepare source artifact without credentials or data
+        run: tar -czf "$RUNNER_TEMP/kd-web-source.tar.gz" --exclude='.git' --exclude='data' --exclude='.private' --exclude='.env*' --exclude='node_modules' --exclude='test-results' --exclude='*.sqlite*' --exclude='*.db' --exclude='kd-web-source.tar.gz' .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kd-web-source
+          path: ${{ runner.temp }}/kd-web-source.tar.gz
+          retention-days: 7
+  container:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare isolated Node runner image
+        run: docker build -f Dockerfile.sandbox -t kd-runtime:local .
+      - name: Check real sandbox isolation
+        run: KD_SANDBOX_TESTS=1 npm test
+      - name: Check coding workspace in Chromium
+        run: npm run test:studio
+      - name: Build deployment image
+        run: docker build -t kd-web:ci .
+      - name: Build isolated runner image
+        run: docker build -f Dockerfile.runner -t kd-runner:ci .
+      - name: Check container startup
+        run: |
+          docker run -d --name kd-web -p 127.0.0.1:3000:3000 kd-web:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs kd-web
+          exit 1
+      - name: Stop test container
+        if: always()
+        run: docker rm -f kd-web || true

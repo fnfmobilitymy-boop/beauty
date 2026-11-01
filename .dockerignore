@@ -1,0 +1,15 @@
+.git
+.github
+data
+.env
+.env.*
+node_modules
+test
+scripts
+docs
+*.zip
+test-results
+*.sqlite*
+*.db
+*.tar.gz
+.private
