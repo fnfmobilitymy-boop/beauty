@@ -34,7 +34,7 @@ jobs:
           python3 - <<'PY'
           import os,re,urllib.request
           for name in ['DEPLOY_HOST','DEPLOY_USER','DEPLOY_SSH_KEY','DEPLOY_KNOWN_HOSTS','PROVIDER_KEY']:
-              if not os.environ.get(name):raise SystemExit('Missing GitHub Secret: '+name)
+              if not os.environ.get(name):raise SystemExit('Missing GitHub Secret: '+('KD_AI_API_KEY' if name=='PROVIDER_KEY' else name))
           if not re.fullmatch(r'[a-zA-Z0-9.-]+',os.environ['DEPLOY_HOST']):raise SystemExit('Invalid deployment host')
           if not re.fullmatch(r'[a-zA-Z0-9_-]+',os.environ['DEPLOY_USER']):raise SystemExit('Invalid deployment user')
           request=urllib.request.Request('https://api.openai.com/v1/models',headers={'Authorization':'Bearer '+os.environ['PROVIDER_KEY']})

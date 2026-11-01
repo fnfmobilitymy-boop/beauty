@@ -47,3 +47,10 @@ Persistent platform storage now uses platform.sqlite with WAL. Use scripts/backu
 CI now builds the approved image from a locked dependency graph before real sandbox and browser tests. Standard public GitHub runners do not need the managed session's CA; managed cloud builds mount the public CA as a BuildKit secret. No checksum/TLS checks are disabled and dependency install scripts are ignored. Manual publication includes all three images but has not been triggered.
 
 The owner selected local engineering first; external connections and public hosting are deferred. Do not automatically create services or publish images. Current local runtime preparation builds Dockerfile.sandbox as kd-runtime:local, rather than merely pulling the plain Node image. Managed builds mount the public session CA through a BuildKit secret. Backups and SQLite databases are excluded from Git, Docker context and source artifacts.
+
+
+## Authorized automatic deployment state
+
+The owner has now authorized automatic deployment and requested server recommendations. Source was pushed to fnfmobilitymy-boop/beauty main. No server account or SSH access has been supplied, so no public service or actual frontend/admin URL exists yet. The current cloud policy blocks api.github.com; a draft domain addition was saved but has not been applied, so Actions status is unverified.
+
+The new deploy/compose.yml runs Caddy HTTPS, a persistent Web app, and a network-isolated trusted worker accessed via an authenticated Unix socket. Only the worker mounts the dedicated Docker daemon socket. scripts/configure-deploy.py creates private app/worker token files without logging credentials; server-side files remain excluded from Git/artifacts. .github/workflows/deploy.yml validates required Secrets, uses verified SSH host keys, preserves application state and verifies HTTPS pages before writing URLs to the Actions summary. See docs/server-setup-zh.md for the required owner steps. The isolated Docker topology, socket permissions, actual job/preview and persistent offline admin binding were verified with synthetic data.

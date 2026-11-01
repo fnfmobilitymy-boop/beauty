@@ -41,7 +41,7 @@ Default port is 3000. Customer site is `/`, coding studio `/studio`, administrat
 - KD_SECURE_COOKIES=enabled for HTTPS hosting (Docker default).
 - KD_DATA_DIR: persistent data directory, default data/.
 - KD_SANDBOX_IMAGE: override approved workload image name; defaults kd-runtime:local. Custom images must honor the approved dependency contract.
-- Hosted Web containers require KD_RUNNER_URL (HTTPS) and a securely supplied KD_RUNNER_TOKEN matching the dedicated worker. Token minimum is 32 characters. Never expose it to browsers, generated code or chat.
+- Hosted Web containers use KD_RUNNER_URL (HTTPS) or KD_RUNNER_SOCKET (the private socket used by deploy/compose.yml), and a securely supplied KD_RUNNER_TOKEN matching the dedicated worker. Token minimum is 32 characters. Never expose it to browsers, generated code or chat.
 
 ## Storage and backup
 
@@ -81,8 +81,10 @@ npm run test:browser
 
 Browser scripts need Chromium/Chrome; set CHROME_PATH if necessary. Full sandbox tests need the prepared workload image. Tests use isolated accounts, synthetic payments and synthetic AI transports unless explicitly described as a live model check; they never credit real customers. Browser failure screenshots are stored under ignored test-results/.
 
-GitHub Actions run syntax, API/business, container, workload and browser checks. Manual image publication prepares Web, worker and runtime images; it does not provision hosting or produce a public URL. Nothing was pushed or deployed externally by preparing these files.
+GitHub Actions run syntax, API/business, container, workload and browser checks. Manual image publication prepares Web, worker and runtime images; it does not provision hosting or produce a public URL. Source and workflows have been pushed to the repository main branch. A public host has not yet been provisioned, and remote Actions completion has not been verified. See docs/server-setup-zh.md for server and GitHub Secrets setup.
 
 ## Still external or incomplete
 
 GitHub OAuth/synchronization, email verification and password recovery, customer production database/site hosting, arbitrary language/dependency support, and public app/worker provisioning remain incomplete. See docs/deployment.md and docs/coding-workspaces.md; newer sections describing SQLite, approved dependencies and live previews supersede their older prototype notes. Do not claim full Codex feature parity or public paid-production readiness.
+
+Administrator roles can also be stored by the offline admin-cli.mjs helper after the owner registers; see docs/server-setup-zh.md. Never bind by signup order or create the owner password on their behalf. Automatic deployment is authorized, but blocked until the owner opens a server and configures GitHub deployment secrets. No public URLs have been issued.
