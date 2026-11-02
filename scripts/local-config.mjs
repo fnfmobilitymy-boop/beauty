@@ -1,0 +1,9 @@
+import {mkdir,readFile,writeFile,chmod,rename} from 'node:fs/promises';
+import {randomBytes} from 'node:crypto';
+import {join,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+export async function prepareLocal(root,requestedPort){const dir=join(root,'deploy/.private/local');await mkdir(dir,{recursive:true});await chmod(dir,0o700);
+ async function read(name){try{const data=await readFile(join(dir,name),'utf8');if(data.includes('\0'))throw Error('请使用 UTF-8 保存本地配置');const values={};for(const line of data.split(/\r?\n/)){if(!line||line.startsWith('#'))continue;const i=line.indexOf('=');if(i<1)throw Error('本地配置格式无效');values[line.slice(0,i)]=line.slice(i+1)}return values}catch(e){if(e.code==='ENOENT')return {};throw e}}
+ const app=await read('app.env'),runner=await read('runner.env'),settings=await read('compose.env');const port=Number(requestedPort||settings.KD_LOCAL_PORT||3000);if(!Number.isInteger(port)||port<1024||port>65535)throw Error('本地端口须在 1024–65535');const token=app.KD_RUNNER_TOKEN||runner.KD_RUNNER_TOKEN||randomBytes(48).toString('hex');if(token.length<32||(runner.KD_RUNNER_TOKEN&&runner.KD_RUNNER_TOKEN!==token))throw Error('本地运行器凭据不一致，请勿覆盖原配置');app.KD_RUNNER_TOKEN=token;app.KD_AI_API_KEY??='';app.KD_CREDITS_BILLING='disabled';runner.KD_RUNNER_TOKEN=token;
+ for(const [name,values] of [['app.env',app],['runner.env',runner],['compose.env',{KD_LOCAL_PORT:String(port)}]]){for(const [key,value]of Object.entries(values))if(!/^[A-Z_][A-Z0-9_]*$/.test(key)||/[\r\n\0]/.test(value))throw Error('本地配置字段无效');const file=join(dir,name),temporary=file+'.tmp';await writeFile(temporary,Object.entries(values).map(([k,v])=>k+'='+v).join('\n')+'\n',{mode:0o600});await chmod(temporary,0o600);await rename(temporary,file)}return {port};}
+if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){await prepareLocal(process.cwd(),process.argv[2]);console.log('Local settings ready; credentials preserved and not displayed')}

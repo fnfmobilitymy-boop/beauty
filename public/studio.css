@@ -5,3 +5,7 @@
 .workspace-actions{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 20px}.workspace-actions button{font-size:11px;padding:7px 9px}
 
 #diff-content{overflow:auto;height:calc(100% - 60px);padding:15px}#diff-content pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.8 monospace;color:#c8b3df}#diff-content h3{font-size:13px;color:#c295ef}
+
+#create-sample{width:100%;margin:0 0 12px;background:#352044}
+
+.local-notice{margin:12px 24px;padding:12px;border:1px solid #986c3e55;border-radius:8px;background:#2b2117;color:#e6c493;font-size:12px;line-height:1.7}

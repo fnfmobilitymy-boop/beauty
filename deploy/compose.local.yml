@@ -1,0 +1,44 @@
+name: kdweb-local
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    env_file: .private/local/app.env
+    environment:
+      KD_DATA_DIR: /app/data
+      KD_RUNNER_SOCKET: /run/kd/runner.sock
+      KD_PUBLIC_ORIGIN: http://127.0.0.1:${KD_LOCAL_PORT:-3000}
+      KD_SECURE_COOKIES: disabled
+      KD_LOCAL_TEST: enabled
+    ports:
+      - 127.0.0.1:${KD_LOCAL_PORT:-3000}:3000
+    volumes:
+      - local_platform:/app/data
+      - local_control:/run/kd:ro
+    depends_on:
+      runner:
+        condition: service_healthy
+    restart: unless-stopped
+  runner:
+    build:
+      context: ..
+      dockerfile: Dockerfile.runner
+    env_file: .private/local/runner.env
+    environment:
+      KD_RUNNER_SOCKET: /run/kd/runner.sock
+      KD_RUNNER_SOCKET_GROUP: '1000'
+      KD_SANDBOX_IMAGE: kd-runtime:local
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - local_control:/run/kd
+    network_mode: none
+    healthcheck:
+      test: [CMD, node, -e, "require('http').get({socketPath:'/run/kd/runner.sock',path:'/health'},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  local_platform:
+  local_control:

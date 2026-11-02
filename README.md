@@ -88,3 +88,11 @@ GitHub Actions run syntax, API/business, container, workload and browser checks.
 GitHub OAuth/synchronization, email verification and password recovery, customer production database/site hosting, arbitrary language/dependency support, and public app/worker provisioning remain incomplete. See docs/deployment.md and docs/coding-workspaces.md; newer sections describing SQLite, approved dependencies and live previews supersede their older prototype notes. Do not claim full Codex feature parity or public paid-production readiness.
 
 Administrator roles can also be stored by the offline admin-cli.mjs helper after the owner registers; see docs/server-setup-zh.md. Never bind by signup order or create the owner password on their behalf. Automatic deployment is authorized, but blocked until the owner opens a server and configures GitHub deployment secrets. No public URLs have been issued.
+
+## Windows local testing — no server purchase
+
+Download/extract the repository ZIP, install/start Docker Desktop in Linux-container mode, then double-click Start-Local.cmd. Stop-Local.cmd preserves the local data volumes. Register your own account before running Local-Admin.cmd to explicitly choose and confirm an administrator. No password is generated for you. The local profile binds only 127.0.0.1 and uses data volumes separate from a later public deployment.
+
+A free built-in sample is available in the studio and runs without any AI key. Real AI calls still need your own securely configured provider key and may incur provider charges. Local setup never copies the managed cloud's key or proxy placeholder into your computer. See docs/windows-local-zh.md for the complete steps, optional key setup and port changes. Windows launchers require first validation on the actual Windows/Docker Desktop machine; their underlying Compose workflow and setup logic are tested separately.
+
+Automatic remote deployment now requires KD_ENABLE_AUTO_DEPLOY=true in repository variables; it is off by default while the owner tests locally. Manual deployment remains available for a later explicit choice.

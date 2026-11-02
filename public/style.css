@@ -18,3 +18,5 @@
 #deposit-form select,#review-form select{min-width:0;width:100%}#deposit-form label{overflow-wrap:anywhere}
 
 .builder-modes{display:flex;justify-content:center;gap:8px;margin-top:24px}.builder-modes button{border-radius:20px;font-size:12px;color:#a595b9}.builder-modes button[aria-pressed=true]{background:#30203f;color:#e8ceff;border-color:#a36fdc}.hero .builder-modes+form{margin-top:16px}
+
+.local-notice{margin:12px 24px;padding:12px;border:1px solid #986c3e55;border-radius:8px;background:#2b2117;color:#e6c493;font-size:12px;line-height:1.7}

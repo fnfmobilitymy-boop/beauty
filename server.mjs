@@ -1,3 +1,4 @@
+import {sampleFiles} from './sample-project.mjs';
 import {loadDocument,saveDocument,acquireAppLease} from './storage.mjs';
 import http from 'node:http';
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
@@ -99,6 +100,7 @@ if(path.startsWith('/api/deposits')){
 }
 if(path.startsWith('/api/workspaces')){
  if(!user)return json(res,401,{error:'请先登录使用代码工作区'});
+ if(path==='/api/workspaces/sample'&&req.method==='POST'){const row=await workspaces.create(user.id,'无需 AI 的本地示例');return json(res,201,workspacePayload(await workspaces.edit(user.id,row.id,sampleFiles,row.revision)))}
  if(path==='/api/workspaces'&&req.method==='GET')return json(res,200,workspaces.list(user.id));
  if(path==='/api/workspaces'&&req.method==='POST'){const input=await body(req);return json(res,201,workspacePayload(await workspaces.create(user.id,input.name)))}
  const match=path.match(/^\/api\/workspaces\/([^/]+)(?:\/(files|tasks|commands|restore|export|import|diff|cancel|preview|preview-logs|preview-stop))?$/);
@@ -145,7 +147,7 @@ if(path.startsWith('/api/workspaces')){
  return json(res,405,{error:'不支持的操作'});
 }
 if(path==='/api/health'&&req.method==='GET')return json(res,200,{status:'ok'});
-if(path==='/api/status')return json(res,200,{aiConfigured:!!process.env.KD_AI_API_KEY});
+if(path==='/api/status')return json(res,200,{aiConfigured:!!process.env.KD_AI_API_KEY,localTesting:process.env.KD_LOCAL_TEST==='enabled'});
 if(path==='/api/projects'&&req.method==='GET')return json(res,200,projects.filter(p=>p.ownerId===user.id).map(({versions,...project})=>project));
 if(path==='/api/projects'&&req.method==='POST'){const p=await body(req);if(typeof p.name!=='string'||typeof p.html!=='string')return json(res,400,{error:'项目名称和 HTML 必填'});const item={id:randomUUID(),revision:randomUUID(),ownerId:user.id,name:p.name.slice(0,100),html:p.html,updatedAt:new Date().toISOString()};projects.unshift(item);await persist();return json(res,201,item)}
 const projectRoute=path.match(/^\/api\/projects\/([^/]+)(?:\/versions(?:\/([^/]+))?)?$/);

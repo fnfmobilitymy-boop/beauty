@@ -11,3 +11,5 @@ $('#login-form').onsubmit=async e=>{e.preventDefault();const button=e.submitter|
 $('#unlock-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/admin/unlock',{method:'POST',body:JSON.stringify({currentPassword:$('#confirm-password').value})});$('#confirm-password').value='';setUnlocked(true);renderDeposits();message('已验证，可连续审核。')}catch(e){message(e.message)}};
 $('#rate-form').onsubmit=async e=>{e.preventDefault();try{await api('/api/admin/rates',{method:'POST',body:JSON.stringify({USDT:$('#usdt-rate').value||null,USD:$('#usd-rate').value||null})});message('报价已保存，仅影响新报价。');await refresh()}catch(e){message(e.message);if(e.message.includes('密码'))setUnlocked(false)}};
 $('#filter').onchange=renderDeposits;$('#refresh').onclick=refresh;$('#logout').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});gate();message('已退出后台。')}catch(e){message(e.message)}};refresh();
+
+api('/api/status').then(s=>$('#local-note').hidden=!s.localTesting).catch(()=>{});
